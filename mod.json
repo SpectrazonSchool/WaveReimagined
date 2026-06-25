@@ -1,0 +1,119 @@
+{
+    "geode": "5.7.1",
+    "gd": {
+        "win": "2.2081",
+        "mac": "2.2081",
+        "android": "2.2081"
+    },
+    "id": "itzar.wave-reimagined",
+    "name": "Wave Reimagined",
+    "version": "v1.0.0",
+    "developer": "Itzar",
+    "description": "A reimagining of the wave gamemode.",
+    "dependencies": {
+        "geode.node-ids": ">=1.19.0"
+    },
+    "links": {
+        "source": "https://github.com/SpectrazonSchool/wave-reimagined"
+    },
+    "tags": [
+        "gameplay"
+    ],
+    "settings": {
+        "enabled": {
+            "type": "bool",
+            "name": "Enabled",
+            "description": "Master enable. Disabling this goes back to the lame, boring old wave trail.",
+            "default": true
+        },
+        "blade-title": {
+            "type": "title",
+            "name": "Blade (white core)"
+        },
+        "base-size": {
+            "type": "float",
+            "name": "Blade thickness",
+            "description": "Scales the resting width of the wave trail. <cy>1</c> is the normal width, lower is thinner, higher is thicker.",
+            "default": 0.8,
+            "min": 0.25,
+            "max": 2.0,
+            "control": {
+                "arrows": true,
+                "slider": true,
+                "input": true
+            }
+        },
+        "pulse-multiplier": {
+            "type": "float",
+            "name": "Music pulse",
+            "description": "How strongly the wave trail pulses (gets thicker) on the beat of the music. <cy>0</c> keeps the blade a constant width, <cy>1</c> is the normal amount, <cy>2</c> is double.",
+            "default": 1.2,
+            "min": 0.0,
+            "max": 2.0,
+            "control": {
+                "arrows": true,
+                "slider": true,
+                "input": true
+            }
+        },
+        "glow-title": {
+            "type": "title",
+            "name": "Glow (coloured)"
+        },
+        "glow-size": {
+            "type": "float",
+            "name": "Glow size",
+            "description": "How far the coloured glow reaches out from the trail, in units. <cy>0</c> hides the glow entirely.",
+            "default": 5.0,
+            "min": 0.0,
+            "max": 20.0,
+            "control": {
+                "arrows": true,
+                "slider": true,
+                "input": true
+            }
+        },
+        "glow-strength": {
+            "type": "float",
+            "name": "Glow strength",
+            "description": "Brightness of the glow right at the edge of the trail, where it's most intense before fading to transparent.",
+            "default": 0.5,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "arrows": true,
+                "slider": true,
+                "input": true
+            }
+        },
+        "glow-additive": {
+            "type": "bool",
+            "name": "Additive glow",
+            "description": "Blends the glow additively for a brighter, more neon look (like real light). Turn off for a flatter, more solid-coloured glow. Currently very buggy in its current state.",
+            "default": false
+        },
+        "music-glow": {
+            "type": "float",
+            "name": "Music-reactive glow",
+            "description": "Makes the glow flare brighter with the music on top of its normal strength. louder = more intense. <cy>0</c> is off, higher values flare harder with the beat.",
+            "default": 1.2,
+            "min": 0.0,
+            "max": 2.0,
+            "control": {
+                "arrows": true,
+                "slider": true,
+                "input": true
+            }
+        },
+        "physics-title": {
+            "type": "title",
+            "name": "Physics (affects gameplay)"
+        },
+        "fix-wave-angle": {
+            "type": "bool",
+            "name": "Fix wave drift",
+            "description": "Forces the wave to move at an exact 45 degree angle, fixing the vanilla bug where it drifts between ~44.9 and ~45.1. <cr>This changes the game's physics</c>, so it is OFF by default and should NOT be used for legitimate top-play submissions like pointercrate.",
+            "default": false
+        }
+    }
+}
