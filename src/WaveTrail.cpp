@@ -39,11 +39,36 @@ void uploadBuffer(CCDrawNode* node, std::vector<ccV2F_C4B_T2F> const& verts) {
     node->m_bDirty = true;
 }
 
+class GlowNode : public CCDrawNode {
+public:
+    bool m_useMax = false;
+
+    static GlowNode* create() {
+        auto ret = new GlowNode();
+        if (ret && ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
+
+    void draw() override {
+        if (m_useMax) {
+            glBlendEquation(GL_MAX);
+            CCDrawNode::draw();
+            glBlendEquation(GL_FUNC_ADD);
+        } else {
+            CCDrawNode::draw();
+        }
+    }
+};
+
 } // namespace
 
 class $modify(LightsaberStreak, HardStreak) {
     struct Fields {
-        CCDrawNode* glow = nullptr;
+        GlowNode* glow = nullptr;
         float musicAmp = 0.f;
     };
 
@@ -103,7 +128,7 @@ class $modify(LightsaberStreak, HardStreak) {
         }
 
         if (!m_fields->glow) {
-            auto glow = CCDrawNode::create();
+            auto glow = GlowNode::create();
             parent->addChild(glow, z - 1);
             m_fields->glow = glow;
         }
@@ -330,6 +355,7 @@ class $modify(LightsaberStreak, HardStreak) {
             }
         }
 
+        glow->m_useMax = additive;
         glow->setBlendFunc(additive
             ? ccBlendFunc{GL_SRC_ALPHA, GL_ONE}
             : ccBlendFunc{GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA});

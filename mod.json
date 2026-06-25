@@ -86,12 +86,6 @@
                 "input": true
             }
         },
-        "glow-additive": {
-            "type": "bool",
-            "name": "Additive glow",
-            "description": "Blends the glow additively for a brighter, more neon look (like real light). Turn off for a flatter, more solid-coloured glow. Currently very buggy in its current state.",
-            "default": false
-        },
         "music-glow": {
             "type": "float",
             "name": "Music-reactive glow",
