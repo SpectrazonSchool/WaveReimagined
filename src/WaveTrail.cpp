@@ -8,9 +8,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#include <map>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 using namespace geode::prelude;
@@ -19,6 +17,25 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr float kWeldTol = 0.1f;
+
+struct EdgeInfo {
+    int count = 0;
+    int k1 = 0, k2 = 0;
+    CCPoint p1, p2, outward;
+};
+
+struct VAcc {
+    CCPoint pos;
+    CCPoint n[2];
+    CCPoint neighbor[2];
+    int cnt = 0;
+};
+
+struct VJoin {
+    bool valid = false;
+    bool convex = false;
+    CCPoint miter;
+};
 
 ccV2F_C4B_T2F makeVertex(CCPoint const& pos, ccColor4B color) {
     ccV2F_C4B_T2F v;
@@ -75,6 +92,12 @@ class $modify(LightsaberStreak, HardStreak) {
     struct Fields {
         GlowNode* glow = nullptr;
         float musicAmp = 0.f;
+        std::vector<CCPoint> uniq;
+        std::unordered_map<int64_t, std::vector<int>> weldGrid;
+        std::unordered_map<int64_t, EdgeInfo> edges;
+        std::vector<VAcc> vmap;
+        std::vector<VJoin> joins;
+        std::vector<ccV2F_C4B_T2F> verts;
     };
 
     void updateStroke(float dt) {
@@ -92,9 +115,7 @@ class $modify(LightsaberStreak, HardStreak) {
         if (auto* fae = FMODAudioEngine::sharedEngine()) {
             meter = fae->getMeteringValue();
         }
-        float raw = std::clamp(meter, 0.f, 1.f);
-        float level = std::clamp((raw - 0.4f) / 0.6f, 0.f, 1.f);
-        level = std::pow(level, 1.6f);
+        float level = std::clamp((meter - 0.2f) / 0.6f, 0.f, 1.f);
         fields->musicAmp = level;
 
         float baseMult = getSetting<float, "base-size">();
@@ -213,9 +234,20 @@ class $modify(LightsaberStreak, HardStreak) {
             outerColor = {trailColor.r, trailColor.g, trailColor.b, 0};
         }
 
-        std::vector<CCPoint> uniq;
+        auto& uniq = fields->uniq;
+        auto& weldGrid = fields->weldGrid;
+        auto& edges = fields->edges;
+        auto& vmap = fields->vmap;
+        auto& joins = fields->joins;
+        auto& verts = fields->verts;
+
+        uniq.clear();
         uniq.reserve(static_cast<size_t>(count));
-        std::unordered_map<int64_t, std::vector<int>> weldGrid;
+        weldGrid.clear();
+        edges.clear();
+        edges.reserve(static_cast<size_t>(count));
+        verts.clear();
+
         auto cellKey = [](int cx, int cy) {
             return (static_cast<int64_t>(static_cast<uint32_t>(cx)) << 32)
                 | static_cast<uint32_t>(cy);
@@ -239,19 +271,17 @@ class $modify(LightsaberStreak, HardStreak) {
             return id;
         };
 
-        struct EdgeInfo {
-            int count = 0;
-            int k1 = 0, k2 = 0;
-            CCPoint p1, p2, outward;
+        auto edgeKey = [](int a, int b) -> int64_t {
+            int lo = a < b ? a : b;
+            int hi = a < b ? b : a;
+            return (static_cast<int64_t>(static_cast<uint32_t>(lo)) << 32)
+                | static_cast<uint32_t>(hi);
         };
-        std::map<std::pair<int, int>, EdgeInfo> edges;
-
         auto addEdge = [&](int k1, int k2, CCPoint opp) {
             if (k1 == k2) return;
             CCPoint p1 = uniq[k1];
             CCPoint p2 = uniq[k2];
-            auto key = k1 < k2 ? std::make_pair(k1, k2) : std::make_pair(k2, k1);
-            auto& e = edges[key];
+            auto& e = edges[edgeKey(k1, k2)];
             e.count++;
             e.k1 = k1;
             e.k2 = k2;
@@ -276,13 +306,7 @@ class $modify(LightsaberStreak, HardStreak) {
             addEdge(ic, ia, uniq[ib]);
         }
 
-        struct VAcc {
-            CCPoint pos;
-            CCPoint n[2];
-            CCPoint neighbor[2];
-            int cnt = 0;
-        };
-        std::map<int, VAcc> vmap;
+        vmap.assign(uniq.size(), VAcc{});
         auto addV = [&](int k, CCPoint pos, CCPoint n, CCPoint neighbor) {
             auto& v = vmap[k];
             v.pos = pos;
@@ -298,44 +322,36 @@ class $modify(LightsaberStreak, HardStreak) {
             addV(e.k2, e.p2, e.outward, e.p1);
         }
 
-        struct VJoin {
-            bool valid = false;
-            bool convex = false;
-            CCPoint miter;
-        };
-        std::map<int, VJoin> joins;
-        for (auto const& [k, v] : vmap) {
+        joins.assign(uniq.size(), VJoin{});
+        for (size_t k = 0; k < uniq.size(); ++k) {
+            VAcc const& v = vmap[k];
+            if (v.cnt != 2) continue;
             VJoin j;
-            if (v.cnt == 2) {
-                CCPoint n1 = v.n[0], n2 = v.n[1];
-                CCPoint u1 = v.neighbor[0] - v.pos;
-                CCPoint u2 = v.neighbor[1] - v.pos;
-                float l1 = u1.getLength(), l2 = u2.getLength();
-                if (l1 >= 0.0001f) u1 = u1 * (1.f / l1);
-                if (l2 >= 0.0001f) u2 = u2 * (1.f / l2);
-                j.convex = (u1 + u2).dot(n1 + n2) < 0.f;
-                CCPoint md = n1 + n2;
-                float ml = md.getLength();
-                if (ml >= 0.0001f) {
-                    md = md * (1.f / ml);
-                    float d = std::max(md.dot(n1), 0.25f);
-                    j.miter = v.pos + md * (glowSize / d);
-                } else {
-                    j.miter = v.pos;
-                }
-                j.valid = true;
+            CCPoint n1 = v.n[0], n2 = v.n[1];
+            CCPoint u1 = v.neighbor[0] - v.pos;
+            CCPoint u2 = v.neighbor[1] - v.pos;
+            float l1 = u1.getLength(), l2 = u2.getLength();
+            if (l1 >= 0.0001f) u1 = u1 * (1.f / l1);
+            if (l2 >= 0.0001f) u2 = u2 * (1.f / l2);
+            j.convex = (u1 + u2).dot(n1 + n2) < 0.f;
+            CCPoint md = n1 + n2;
+            float ml = md.getLength();
+            if (ml >= 0.0001f) {
+                md = md * (1.f / ml);
+                float d = std::max(md.dot(n1), 0.25f);
+                j.miter = v.pos + md * (glowSize / d);
+            } else {
+                j.miter = v.pos;
             }
+            j.valid = true;
             joins[k] = j;
         }
 
-        std::vector<ccV2F_C4B_T2F> verts;
         verts.reserve(edges.size() * 9);
 
         auto outerAt = [&](int k, CCPoint pos, CCPoint edgeN) -> CCPoint {
-            auto it = joins.find(k);
-            if (it != joins.end() && it->second.valid && !it->second.convex) {
-                return it->second.miter;
-            }
+            VJoin const& jn = joins[k];
+            if (jn.valid && !jn.convex) return jn.miter;
             return pos + edgeN * glowSize;
         };
 
@@ -352,9 +368,10 @@ class $modify(LightsaberStreak, HardStreak) {
         }
 
         float maxStep = static_cast<float>(15.0 * kPi / 180.0);
-        for (auto const& [k, v] : vmap) {
-            auto jit = joins.find(k);
-            if (jit == joins.end() || !jit->second.valid || !jit->second.convex) continue;
+        for (size_t k = 0; k < uniq.size(); ++k) {
+            VJoin const& jn = joins[k];
+            if (!jn.valid || !jn.convex) continue;
+            VAcc const& v = vmap[k];
             CCPoint n1 = v.n[0], n2 = v.n[1];
             float a1 = std::atan2(n1.y, n1.x);
             float a2 = std::atan2(n2.y, n2.x);
