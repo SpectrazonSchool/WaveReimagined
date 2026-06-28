@@ -7,7 +7,7 @@
     },
     "id": "itzar.wave-reimagined",
     "name": "Wave Reimagined",
-    "version": "v1.0.0",
+    "version": "v1.1.0",
     "developer": "Itzar",
     "description": "A reimagining of the wave gamemode.",
     "dependencies": {
@@ -85,6 +85,12 @@
                 "slider": true,
                 "input": true
             }
+        },
+        "glow-additive": {
+            "type": "bool",
+            "name": "Additive glow",
+            "description": "Blends the glow with a <cy>lighten</c> blend for a brighter, neon look (like real light) instead of a flat, solid-coloured glow. Where the trail overlaps itself the glow takes the brightest value rather than stacking up, so it stays a clean glow.",
+            "default": false
         },
         "music-glow": {
             "type": "float",

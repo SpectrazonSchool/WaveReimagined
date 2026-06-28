@@ -1,6 +1,9 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/HardStreak.hpp>
 
+#include "getSetting.hpp"
+#include "levelState.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -42,10 +45,11 @@ void uploadBuffer(CCDrawNode* node, std::vector<ccV2F_C4B_T2F> const& verts) {
 class GlowNode : public CCDrawNode {
 public:
     bool m_useMax = false;
+    CCDrawNode* m_streak = nullptr;
 
     static GlowNode* create() {
         auto ret = new GlowNode();
-        if (ret && ret->init()) {
+        if (ret->init()) {
             ret->autorelease();
             return ret;
         }
@@ -54,6 +58,7 @@ public:
     }
 
     void draw() override {
+        if (m_streak && m_streak->m_nBufferCount < 3) return;
         if (m_useMax) {
             glBlendEquation(GL_MAX);
             CCDrawNode::draw();
@@ -73,7 +78,7 @@ class $modify(LightsaberStreak, HardStreak) {
     };
 
     void updateStroke(float dt) {
-        auto mod = Mod::get();
+        auto fields = m_fields.self();
 
         static bool meteringEnabled = false;
         if (!meteringEnabled) {
@@ -90,20 +95,20 @@ class $modify(LightsaberStreak, HardStreak) {
         float raw = std::clamp(meter, 0.f, 1.f);
         float level = std::clamp((raw - 0.4f) / 0.6f, 0.f, 1.f);
         level = std::pow(level, 1.6f);
-        m_fields->musicAmp = level;
+        fields->musicAmp = level;
 
-        float baseMult = mod->getSettingValue<float>("base-size");
-        float pulseMult = mod->getSettingValue<float>("pulse-multiplier");
+        float baseMult = getSetting<float, "base-size">();
+        float pulseMult = getSetting<float, "pulse-multiplier">();
         float base = m_waveSize * baseMult;
         m_pulseSize = base * (1.f + pulseMult * level);
 
         HardStreak::updateStroke(dt);
 
-        if (!mod->getSettingValue<bool>("enabled")) {
+        if (!getSetting<bool, "enabled">() || wr::currentLevelDisabled()) {
             this->setBlendFunc({GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA});
-            if (m_fields->glow) {
-                m_fields->glow->m_nBufferCount = 0;
-                m_fields->glow->m_bDirty = true;
+            if (fields->glow) {
+                fields->glow->m_nBufferCount = 0;
+                fields->glow->m_bDirty = true;
             }
             return;
         }
@@ -112,6 +117,8 @@ class $modify(LightsaberStreak, HardStreak) {
     }
 
     void ensureGlow() {
+        auto fields = m_fields.self();
+
         CCNode* parent = this->getParent();
         if (!parent) return;
 
@@ -127,12 +134,13 @@ class $modify(LightsaberStreak, HardStreak) {
             }
         }
 
-        if (!m_fields->glow) {
+        if (!fields->glow) {
             auto glow = GlowNode::create();
+            glow->m_streak = this;
             parent->addChild(glow, z - 1);
-            m_fields->glow = glow;
+            fields->glow = glow;
         }
-        auto* glow = m_fields->glow;
+        auto* glow = fields->glow;
 
         if (glow->getParent() != parent) {
             glow->removeFromParentAndCleanup(false);
@@ -171,16 +179,16 @@ class $modify(LightsaberStreak, HardStreak) {
     }
 
     void buildGlow(ccV2F_C4B_T2F* buffer, int count, ccColor4B trailColor) {
-        auto* glow = m_fields->glow;
-        auto mod = Mod::get();
+        auto fields = m_fields.self();
+        auto* glow = fields->glow;
 
-        float glowSize = mod->getSettingValue<float>("glow-size");
-        float strength = mod->getSettingValue<float>("glow-strength");
-        bool additive = mod->getSettingValue<bool>("glow-additive");
+        float glowSize = getSetting<float, "glow-size">();
+        float strength = getSetting<float, "glow-strength">();
+        bool additive = getSetting<bool, "glow-additive">();
 
-        float musicGlow = mod->getSettingValue<float>("music-glow");
+        float musicGlow = getSetting<float, "music-glow">();
         if (musicGlow > 0.f) {
-            float m = m_fields->musicAmp;
+            float m = fields->musicAmp;
             glowSize *= 1.f + musicGlow * m;
             strength = std::clamp(strength + musicGlow * m, 0.f, 1.f);
         }
@@ -191,9 +199,19 @@ class $modify(LightsaberStreak, HardStreak) {
             return;
         }
 
-        auto innerAlpha = static_cast<GLubyte>(std::clamp(strength, 0.f, 1.f) * 255.f);
-        ccColor4B innerColor = {trailColor.r, trailColor.g, trailColor.b, innerAlpha};
-        ccColor4B outerColor = {trailColor.r, trailColor.g, trailColor.b, 0};
+        float s = std::clamp(strength, 0.f, 1.f);
+        ccColor4B innerColor, outerColor;
+        if (additive) {
+            innerColor = {static_cast<GLubyte>(trailColor.r * s),
+                          static_cast<GLubyte>(trailColor.g * s),
+                          static_cast<GLubyte>(trailColor.b * s),
+                          static_cast<GLubyte>(255.f * s)};
+            outerColor = {0, 0, 0, 0};
+        } else {
+            auto innerAlpha = static_cast<GLubyte>(s * 255.f);
+            innerColor = {trailColor.r, trailColor.g, trailColor.b, innerAlpha};
+            outerColor = {trailColor.r, trailColor.g, trailColor.b, 0};
+        }
 
         std::vector<CCPoint> uniq;
         uniq.reserve(static_cast<size_t>(count));
@@ -357,7 +375,7 @@ class $modify(LightsaberStreak, HardStreak) {
 
         glow->m_useMax = additive;
         glow->setBlendFunc(additive
-            ? ccBlendFunc{GL_SRC_ALPHA, GL_ONE}
+            ? ccBlendFunc{GL_ONE, GL_ONE}
             : ccBlendFunc{GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA});
         uploadBuffer(glow, verts);
     }
