@@ -11,7 +11,8 @@
     "developer": "Itzar",
     "description": "A reimagining of the wave gamemode.",
     "dependencies": {
-        "geode.node-ids": ">=1.19.0"
+        "geode.node-ids": ">=1.19.0",
+        "ninxout.options_api": ">=1.0.0"
     },
     "links": {
         "source": "https://github.com/SpectrazonSchool/wave-reimagined"

@@ -1,35 +1,23 @@
 #include <Geode/Geode.hpp>
-#include <Geode/modify/GameLevelOptionsLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
+#include <ninxout.options_api/include/API.hpp>
 
 #include "levelState.hpp"
 
 using namespace geode::prelude;
 
-namespace {
-constexpr int kDisableTag = 0x77115E;
-}
-
-class $modify(WRGameLevelOptionsLayer, GameLevelOptionsLayer) {
-    void setupOptions() {
-        GameLevelOptionsLayer::setupOptions();
-        this->addToggle(
-            "Disable Wave Reimagined",
-            kDisableTag,
-            wr::isDisabledForLevel(m_level),
-            "Falls back to the vanilla wave trail for <cy>this level only</c>, leaving Wave Reimagined enabled everywhere else.");
-    }
-
-    void didToggle(int tag) {
-        if (tag == kDisableTag) {
-            bool value = !wr::isDisabledForLevel(m_level);
-            wr::setDisabledForLevel(m_level, value);
+$on_mod(Loaded) {
+    OptionsAPI::addPreLevelSetting<bool>(
+        "Disable Wave Reimagined",
+        "disable-wave-reimagined"_spr,
+        [](GJGameLevel* level) {
+            bool value = !wr::isDisabledForLevel(level);
+            wr::setDisabledForLevel(level, value);
             wr::currentLevelDisabled() = value;
-            return;
-        }
-        GameLevelOptionsLayer::didToggle(tag);
-    }
-};
+        },
+        [](GJGameLevel* level) { return wr::isDisabledForLevel(level); },
+        "Falls back to the vanilla wave trail for <cy>this level only</c>, leaving Wave Reimagined enabled everywhere else.");
+}
 
 class $modify(WRDisablePlayLayer, PlayLayer) {
     bool init(GJGameLevel* level, bool useReplay, bool dontCreateObjects) {
