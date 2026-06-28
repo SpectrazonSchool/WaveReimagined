@@ -20,3 +20,4 @@ If you want your wave trail to not be stupid when it slides off of D blocks, dow
 ---
 
 Made by **Itzar**.
+Logo drawn by **Alphalaneous**

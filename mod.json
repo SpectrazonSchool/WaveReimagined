@@ -17,7 +17,12 @@
         "source": "https://github.com/SpectrazonSchool/wave-reimagined"
     },
     "tags": [
-        "gameplay"
+        "gameplay",
+        "offline",
+        "cheat",
+        "customization",
+        "bugfix",
+        "enhancement"
     ],
     "settings": {
         "enabled": {
