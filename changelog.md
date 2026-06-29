@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.3
+- iOS support
+- Mini wave glow size bugfix
+
 ## v1.1.2
 - Fixed the wave trail rendering weirdly
 - Reworked music intensity to react linearly to volume
