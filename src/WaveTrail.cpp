@@ -13,6 +13,12 @@
 
 using namespace geode::prelude;
 
+#ifndef GL_MAX
+    #ifdef GL_MAX_EXT
+        #define GL_MAX GL_MAX_EXT
+    #endif
+#endif
+
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
@@ -137,6 +143,19 @@ class $modify(LightsaberStreak, HardStreak) {
         this->applyLightsaber();
     }
 
+    float waveScale() {
+        if (auto* gl = GJBaseGameLayer::get()) {
+            PlayerObject* player = gl->m_player1;
+            if (gl->m_player2 && gl->m_player2->m_waveTrail == this) {
+                player = gl->m_player2;
+            }
+            if (player && player->m_vehicleSize > 0.f) {
+                return player->m_vehicleSize;
+            }
+        }
+        return 1.f;
+    }
+
     void ensureGlow() {
         auto fields = m_fields.self();
 
@@ -206,6 +225,8 @@ class $modify(LightsaberStreak, HardStreak) {
         float glowSize = getSetting<float, "glow-size">();
         float strength = getSetting<float, "glow-strength">();
         bool additive = getSetting<bool, "glow-additive">();
+
+        glowSize *= this->waveScale();
 
         float musicGlow = getSetting<float, "music-glow">();
         if (musicGlow > 0.f) {
