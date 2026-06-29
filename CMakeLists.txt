@@ -22,4 +22,10 @@ endif()
 
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
+if ("${CMAKE_SYSTEM_NAME}" STREQUAL "iOS" OR IOS)
+    target_link_libraries(${PROJECT_NAME} "-framework OpenGLES")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND codesign --force --sign - "$<TARGET_FILE:${PROJECT_NAME}>")
+endif()
+
 setup_geode_mod(${PROJECT_NAME})

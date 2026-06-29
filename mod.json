@@ -8,7 +8,7 @@
     },
     "id": "itzar.wave-reimagined",
     "name": "Wave Reimagined",
-    "version": "v1.1.2",
+    "version": "v1.1.3",
     "developer": "Itzar",
     "description": "A reimagining of the wave gamemode.",
     "dependencies": {
